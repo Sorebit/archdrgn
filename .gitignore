@@ -1,3 +1,5 @@
+/node_modules
+
 # Omit ctual login data
 config.json
 
