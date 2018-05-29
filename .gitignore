@@ -1,0 +1,6 @@
+# Omit ctual login data
+config.json
+
+# Editor files
+*.sublime-project
+*.sublime-workspace
