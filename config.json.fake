@@ -2,5 +2,8 @@
   "credentials": { 
     "login": "fakelogin",
     "password": "fakepasswd"
-  }
+  },
+  "dragons": [1, 2, 3],
+  "goldInterval": 1,
+  "levelInterval": 2
 }

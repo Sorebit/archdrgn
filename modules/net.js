@@ -10,7 +10,7 @@ Net.request = function(method, path, config, callback) {
     method: method,
     headers: {}
   }
-  let data = {};
+  let data = undefined;
 
   if(config.cookie) {
     options.headers['Cookie'] = config.cookie;
@@ -21,19 +21,24 @@ Net.request = function(method, path, config, callback) {
     options.headers['Content-Type'] = 'application/x-www-form-urlencoded';
     options.headers['Content-Length'] = Buffer.byteLength(data);
   }
+  
+  if(config.type === 'json') {
+    options.headers['Content-Type'] = 'application/json';
+    options.headers['X-Requested-With'] = 'XMLHttpRequest';
+  }
 
+  console.log('===', options.method, options.path, '===');
   // Make request
   const req = http.request(options, (response) => {
     response.setEncoding('utf8');
-    console.log('===', options.method, options.path, '===');
     console.log('Status:', response.statusCode, response.statusMessage);
 
     // Response html created from chunks
-    let html = "";
-    response.on('data', (chunk) => { html += chunk; });
+    let responseData = "";
+    response.on('data', (chunk) => { responseData += chunk; });
     // Whole response is loaded
     response.on('end', () => {
-      callback(response, html);
+      callback(response, responseData);
     });
   });
 
