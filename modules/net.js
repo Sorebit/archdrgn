@@ -21,7 +21,7 @@ Net.request = function(method, path, config, callback) {
     options.headers['Content-Type'] = 'application/x-www-form-urlencoded';
     options.headers['Content-Length'] = Buffer.byteLength(data);
   }
-  
+
   if(config.type === 'json') {
     options.headers['Content-Type'] = 'application/json';
     options.headers['X-Requested-With'] = 'XMLHttpRequest';
@@ -43,7 +43,7 @@ Net.request = function(method, path, config, callback) {
   });
 
   // Handle response error
-  req.on('error', (e) => console.error('Request error:', e.message));
+  req.on('error', (e) => console.error('[ERROR] Request error:', e.message));
   // Write form data
   if(data &&  method === 'POST') {
     req.write(data);

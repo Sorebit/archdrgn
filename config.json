@@ -1,0 +1,9 @@
+{
+  "user": { 
+    "login": "fakelogin",
+    "password": "fakepassword",
+    "dragons": [1001, 1002, 1003]
+  },
+  "goldInterval": 5,
+  "levelInterval": 10
+}

@@ -1,6 +1,6 @@
 {
   "name": "archdrgn",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "archdragon.com gold-digging, dragon-levelling bot",
   "main": "index.js",
   "scripts": {

@@ -1,4 +1,8 @@
-const config = require('./config.json');
+// Load config
+const configFile = (process.argv.length > 2) ? process.argv[2] : './config.json';
+console.log('Loading config from', configFile);
+const config = require(configFile);
+
 const Net = require('./modules/net')
 const EventEmitter = require('events');
 const botEmmiter = new EventEmitter();
@@ -6,8 +10,9 @@ const { JSDOM } = require('jsdom');
 const Util = require('./modules/util');
 
 function login() {
-  console.log('[ACTION] Logging in to', config.credentials.login);
-  Net.post('/index.php?c=login&a=login', { data: config.credentials }, (res) => {
+  console.log('[ACTION] Logging in to', config.user.login);
+  const user = { login: config.user.login, password: config.user.password };
+  Net.post('/index.php?c=login&a=login', { data: user }, (res) => {
     // Check if logged in (succesful login redirects to /map/index.html)
     if(res.headers['location'] === '/map/index.html') {
       // Store cookie
@@ -55,7 +60,6 @@ function levelUpDragon(id, cookie)
     next.setMinutes(next.getMinutes() + config.levelInterval);
     console.log('[SCHEDULER] Next level :', Util.dateTime(next), '\n');
   });
-
 }
 
 // Main logic
@@ -66,8 +70,8 @@ botEmmiter.on('loginSuccess', (cookie) => {
   console.log('Login successful');
   console.log('Cookie:', cookie, '\n');
 
-  console.log('[SCHEDULER] Next gold in', config.goldInterval, 'minutes');
-  console.log('[SCHEDULER] Next level in', config.levelInterval, 'minutes\n');
+  console.log('[SCHEDULER] Gold interval:', config.goldInterval, 'minutes');
+  console.log('[SCHEDULER] Level interval:', config.levelInterval, 'minutes\n');
 
   let goldInt = setInterval(() => {
     botEmmiter.emit('gold', cookie);
@@ -83,13 +87,13 @@ botEmmiter.on('gold', (cookie) => {
 });
 
 botEmmiter.on('levelUp', (cookie) => {
-  for(let id in config.dragons) {
-    levelUpDragon(config.dragons[id], cookie);
+  for(let id in config.user.dragons) {
+    levelUpDragon(config.user.dragons[id], cookie);
   }
 });
 
 botEmmiter.on('error', (error) => {
-  console.error('Bot error:', error.header);
+  console.error('[ERROR]', error.header);
   if(error.header === 'Login failed') {
     console.log('Response:', error.response.headers);
   }

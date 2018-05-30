@@ -1,5 +1,5 @@
-# Omit actual login data
-config.json
+# Omit actual configs
+config-*.json
 
 # Editor files
 *.sublime-project
