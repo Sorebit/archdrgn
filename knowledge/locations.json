@@ -1,0 +1,22 @@
+{
+  "Old Cemetery": {
+    "id": 1,
+    "items": ["Bone","Coffee Beans","Earthplant Seed","Leather","Mandrake Seed","Sapphire Shield - Part 1","Skillbook: Aura of Might","Spark of life","Twig"]
+  },
+  "Abandoned Mansion": {
+    "id": 2,
+    "items": ["Bone","Coffee Beans","Energizing Elixir","Fireplant Seed","Leather","Mandrake Seed","Skillbook: Aura of Might","Skillbook: Groundskin","Skillbook: Steam","Spark of life","Twig"]
+  },
+  "Bay of Mists": {
+    "id": 3,
+    "items": ["Coffee Beans","Healing Herb","Leather","Mandrake Seed","Skillbook: Aura of Might","Skillbook: Groundskin","Skillbook: Steam","Skillbook: Windlash","Spark of life","Twig","Waterplant Seed"]
+  },
+  "Beartooth Mountains": {
+    "id": 4,
+    "items": ["Airplant Seed","Coffee Beans","Energizing Elixir","Hairstyle - White","Leather","Mandrake Seed","Mint Leafs","Sapphire Shield - Part 4","Spark of life","Twig"]
+  },
+  "Swamps": {
+    "id": 5,
+    "items": ["Coffee Beans","Earthplant Seed","Energizing Elixir","Healing Herb","Leather","Spark of life","Twig","Waterplant Seed"]
+  }
+}

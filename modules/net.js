@@ -32,7 +32,6 @@ Net.request = function(method, path, config, callback) {
   const req = http.request(options, (response) => {
     response.setEncoding('utf8');
     console.log('Status:', response.statusCode, response.statusMessage);
-
     // Response html created from chunks
     let responseData = "";
     response.on('data', (chunk) => { responseData += chunk; });
