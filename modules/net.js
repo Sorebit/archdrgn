@@ -6,10 +6,10 @@ const Util = require('./util');
 
 const Net = function() {}
 
-Net.request = function(method, path, config, callback) {
+Net.request = function(method, config, callback) {
   const options = {
     host: 'archdragon.com',
-    path: path,
+    path: config.path,
     method: method,
     headers: {}
   }
@@ -54,12 +54,12 @@ Net.request = function(method, path, config, callback) {
   req.end();
 }
 
-Net.get = function(path, config, callback) {
-  Net.request('GET', path, config, callback);
+Net.get = function(config, callback) {
+  Net.request('GET', config, callback);
 }
 
-Net.post = function(path, config, callback) {
-  Net.request('POST', path, config, callback);
+Net.post = function(config, callback) {
+  Net.request('POST', config, callback);
 }
 
 module.exports = Net;

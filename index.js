@@ -14,11 +14,12 @@ const { JSDOM } = require('jsdom');
 const Util = require('./modules/util');
 // Bot event handler
 const eventHandler = new EventEmitter();
+let lastGold = null;
 
 function login() {
   console.log('\n[ACTION] Logging in to', config.user.login);
   const user = { login: config.user.login, password: config.user.password };
-  Net.post('/index.php?c=login&a=login', { data: user }, (response) => {
+  Net.post({ path: '/index.php?c=login&a=login', data: user }, (response) => {
     // Check if logged in (succesful login redirects to /map/index.html)
     if(response.headers['location'] === '/map/index.html') {
       // Store cookie
@@ -32,15 +33,28 @@ function login() {
   });
 }
 
+function refresh() {
+  console.log('\n[ACTION] Refreshing');
+  Net.get({ path: '/index.php' }, (response) => {
+    queue.complete();
+  });
+}
+
 function gold() {
   console.log('\n[ACTION] Requesting gold');
-  Net.get('/index.php?c=build&a=collect&place=1', {  }, (response) => {
-    Net.get('/' + response.headers['location'], {  }, (response, html) => {
+  Util.log(1, 'Last gold received:', lastGold);
+  Net.get({ path: '/index.php?c=build&a=collect&place=1' }, (response) => {
+    Net.get({ path: '/' + response.headers['location'] }, (response, html) => {
       const dom = new JSDOM(html);
       const msg = dom.window.document.getElementById('messageBar');
       const goldValue = dom.window.document.getElementById('index-gold-value');
       if(msg) {
         Util.log(1, 'Action message:', msg.children[0].textContent);
+        // If success, save time
+        if(msg.children[0].textContent === '20 gold recieved!') {
+          Util.log(2, 'Saving latest gold time', Util.dateTime(new Date()));
+          lastGold = Date.now();
+        }
       } else {
         Util.log(1, 'No action message');
       }
@@ -49,9 +63,13 @@ function gold() {
       } else {
         Util.log(1, 'Gold not found in render');
       }
+      
       const next = new Date();
-      next.setSeconds(next.getSeconds() + Math.ceil(config.goldInterval * 60));
+      const add = lastGold ? 61 * 60 : Math.ceil(config.goldInterval * 60);
+      next.setSeconds(next.getSeconds() + add);
       console.log('[SCHEDULER] Next gold:', Util.dateTime(next));
+      setTimeout(() => queue.push(gold), add * 1000);
+
       // Tell handler that current action has been completed
       queue.complete();
     });
@@ -62,7 +80,7 @@ function levelUpDragon(id)
 {
   console.log('\n[ACTION] Trying to level up dragon', id);
   const path = '/index.php?mode=ajax&c=dragons&a=levelUp&dragonId=' + id + '&mode=noItem"';
-  Net.post(path, { type: 'json' }, (res, data) => {
+  Net.post({ path: path, type: 'json' }, (res, data) => {
     data = JSON.parse(data);
     let text = "";
     if(data.error != "NONE") {
@@ -83,7 +101,7 @@ function levelUpDragon(id)
 function quest(dragon, place, hours) {
   console.log('\n[ACTION] Trying to send dragon', dragon, 'on quest', place, 'for', hours, 'hours');
   const data = { "dragon": dragon, "hours": (60 * hours), "place": place };
-  Net.post('/index.php?c=quests&a=send', { data: data }, (res, html) => {
+  Net.post({ path: '/index.php?c=quests&a=send', data: data }, (res, html) => {
     // console.log(res.headers);
     // console.log(html);
     // Tell handler that current action has been completed
@@ -118,7 +136,7 @@ function setupQuests() {
 function fishing(points) {
   console.log('\n[ACTION] Trying to fish');
   const data = { fish: "at the age old pond - a frog leaps into water - a deep resonance" };
-  Net.post('/map/fishing.html', { data: data }, (res, html) => {
+  Net.post({ path: '/map/fishing.html', data: data }, (res, html) => {
     let data = {};
     // === TEST ME ===
     if(html.indexOf('Undefined offset: 0') >= 0) {
@@ -166,11 +184,20 @@ eventHandler.on('loginSuccess', () => {
 
   console.log('[SCHEDULER] Gold interval:', config.goldInterval, 'min (' + Math.ceil(config.goldInterval * 60), 's)');
   console.log('[SCHEDULER] Level interval:', config.levelInterval, 'min (' + Math.ceil(config.levelInterval * 60), 's)');
+  console.log('[SCHEDULER] Refresh interval:', config.refreshInterval, 'min (' + Math.ceil(config.refreshInterval * 60), 's)');
+
+  let refreshInt = setInterval(() => {
+    queue.push(refresh);
+  }, config.refreshInterval * 60 * 1000);
 
   queue.push(gold);
-  let goldInt = setInterval(() => {
-    queue.push(gold);
-  }, config.goldInterval * 60 * 1000);
+  // let goldInt = setInterval(() => {
+  //   if(!lastGold) {
+  //     queue.push(gold);
+  //   } else {
+  //     clearInterval(goldInt);
+  //   }
+  // }, config.goldInterval * 60 * 1000);
 
   let levelInt = setInterval(() => {
     for(let id in config.user.dragons) {
