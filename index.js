@@ -52,8 +52,8 @@ function gold() {
         Util.log(1, 'Action message:', msg.children[0].textContent);
         // If success, save time
         if(msg.children[0].textContent === '20 gold recieved!') {
-          Util.log(2, 'Saving latest gold time', Util.dateTime(new Date()));
-          lastGold = Date.now();
+          lastGold = new Date();
+          Util.log(2, 'Saving latest gold time', Util.dateTime(lastGold));
         }
       } else {
         Util.log(1, 'No action message');
@@ -186,26 +186,24 @@ eventHandler.on('loginSuccess', () => {
   console.log('[SCHEDULER] Level interval:', config.levelInterval, 'min (' + Math.ceil(config.levelInterval * 60), 's)');
   console.log('[SCHEDULER] Refresh interval:', config.refreshInterval, 'min (' + Math.ceil(config.refreshInterval * 60), 's)');
 
+  // Setup refresh schedule
   let refreshInt = setInterval(() => {
     queue.push(refresh);
   }, config.refreshInterval * 60 * 1000);
 
+  // Setup gold schedule
   queue.push(gold);
-  // let goldInt = setInterval(() => {
-  //   if(!lastGold) {
-  //     queue.push(gold);
-  //   } else {
-  //     clearInterval(goldInt);
-  //   }
-  // }, config.goldInterval * 60 * 1000);
 
+  // Setup leveling schedule
   let levelInt = setInterval(() => {
     for(let id in config.user.dragons) {
       queue.push(levelUpDragon, [config.user.dragons[id]]);
     }
   }, config.levelInterval * 60 * 1000);
 
+  // Setup quests once
   setupQuests();
+  // Setup fishing once
   queue.push(fishing);
 });
 
