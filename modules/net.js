@@ -1,5 +1,8 @@
+'use strict';
+
 const http = require('http');
 const qs = require('querystring');
+const Util = require('./util');
 
 const Net = function() {}
 
@@ -12,8 +15,8 @@ Net.request = function(method, path, config, callback) {
   }
   let data = undefined;
 
-  if(config.cookie) {
-    options.headers['Cookie'] = config.cookie;
+  if(Net.cookie) {
+    options.headers['Cookie'] = Net.cookie;
   }
 
   if(config.data && method === 'POST') {
@@ -31,7 +34,7 @@ Net.request = function(method, path, config, callback) {
   // Make request
   const req = http.request(options, (response) => {
     response.setEncoding('utf8');
-    console.log('Status:', response.statusCode, response.statusMessage);
+    Util.log(1, 'Status:', response.statusCode, response.statusMessage);
     // Response html created from chunks
     let responseData = "";
     response.on('data', (chunk) => { responseData += chunk; });
