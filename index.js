@@ -1,23 +1,31 @@
 'use strict';
 
-// Load config
-const configFile = (process.argv.length > 2) ? process.argv[2] : './config.json';
-console.log('Loading config from', configFile);
-const config = require(configFile);
-const locations = require('./knowledge/locations.json');
+
 // Modules and classes
 const Net = require('./modules/net');
 const ActionQueue = require('./modules/actionqueue');
-const queue = new ActionQueue();
 const EventEmitter = require('events');
 const { JSDOM } = require('jsdom');
 const Util = require('./modules/util');
-// Bot event handler
-const eventHandler = new EventEmitter();
-let lastGold = null;
 
+const eventHandler = new EventEmitter();
+const queue = new ActionQueue();
+
+// Load configs
+if(process.argv.length <= 2) {
+  console.error('[ERROR]', 'No username specified');
+  process.exit(1);
+}
+const config = Util.loadConfig('users/' + process.argv[2]);
+config.locations = Util.loadConfig('locations');
+
+// 
+let lastGold = null;
+let lastLevel = {};
+
+// Login and keep cookie for later requests
 function login() {
-  console.log('\n[ACTION] Logging in to', config.user.login);
+  Util.logA('Logging in to', config.user.login);
   const user = { login: config.user.login, password: config.user.password };
   Net.post({ path: '/index.php?c=login&a=login', data: user }, (response) => {
     // Check if logged in (succesful login redirects to /map/index.html)
@@ -33,24 +41,27 @@ function login() {
   });
 }
 
+// Refresh by requesting index
 function refresh() {
-  console.log('\n[ACTION] Refreshing');
+  Util.logA('Refreshing');
   Net.get({ path: '/index.php' }, (response) => {
     queue.complete();
   });
 }
 
+// Gold requesting and scheduling
 function gold() {
-  console.log('\n[ACTION] Requesting gold');
+  Util.logA('Trying to dig gold');
   Util.log(1, 'Last gold received:', lastGold);
   Net.get({ path: '/index.php?c=build&a=collect&place=1' }, (response) => {
     Net.get({ path: '/' + response.headers['location'] }, (response, html) => {
+      // Find gold value element
       const dom = new JSDOM(html);
       const msg = dom.window.document.getElementById('messageBar');
       const goldValue = dom.window.document.getElementById('index-gold-value');
       if(msg) {
         Util.log(1, 'Action message:', msg.children[0].textContent);
-        // If success, save time
+        // If success, keep time
         if(msg.children[0].textContent === '20 gold recieved!') {
           lastGold = new Date();
           Util.log(2, 'Saving latest gold time', Util.dateTime(lastGold));
@@ -58,12 +69,15 @@ function gold() {
       } else {
         Util.log(1, 'No action message');
       }
+      // Display user's current gold
       if(goldValue) {
         Util.log(1, 'Current gold:', goldValue.textContent.match(/[0-9]+/)[0]);
       } else {
         Util.log(1, 'Gold not found in render');
       }
       
+      // If there was a successful gold request schedule next for next hour (+ 1 minute)
+      // Otherwise use goldInterval
       const next = new Date();
       const add = lastGold ? 61 * 60 : Math.ceil(config.goldInterval * 60);
       next.setSeconds(next.getSeconds() + add);
@@ -76,9 +90,11 @@ function gold() {
   });
 }
 
+// Level up dragon with specified id
+// TODO: Use leveling result (error, text) to schedule levelling
 function levelUpDragon(id)
 {
-  console.log('\n[ACTION] Trying to level up dragon', id);
+  Util.logA('Trying to level up dragon', id);
   const path = '/index.php?mode=ajax&c=dragons&a=levelUp&dragonId=' + id + '&mode=noItem"';
   Net.post({ path: path, type: 'json' }, (res, data) => {
     data = JSON.parse(data);
@@ -88,7 +104,11 @@ function levelUpDragon(id)
     } else {
       text = data.text;
     }
+    const l = text.match(/[0-9]+/);
     Util.log(1, 'Leveling result:', text);
+    if(l) {
+      Util.log(2, 'New level:', l[0]);
+    }
 
     const next = new Date();
     next.setSeconds(next.getSeconds() + Math.ceil(config.levelInterval * 60));
@@ -98,8 +118,10 @@ function levelUpDragon(id)
   });
 }
 
+// Send specified dragon on specified quest for specified count of hours
+// TODO: Figure out how to check if dragon was sucessfully sent on quest
 function quest(dragon, place, hours) {
-  console.log('\n[ACTION] Trying to send dragon', dragon, 'on quest', place, 'for', hours, 'hours');
+  Util.logA('Trying to send dragon', dragon, 'on quest', place, 'for', hours, 'hours');
   const data = { "dragon": dragon, "hours": (60 * hours), "place": place };
   Net.post({ path: '/index.php?c=quests&a=send', data: data }, (res, html) => {
     // console.log(res.headers);
@@ -109,6 +131,7 @@ function quest(dragon, place, hours) {
   });
 }
 
+// Setup quests (find mission for items and send dragons)
 function setupQuests() {
   // For each dragon look for different item
   console.log('\nSetting up quests');
@@ -116,10 +139,10 @@ function setupQuests() {
     Util.log(1, 'Dragon', config.user.dragons[i], 'Looking for', config.user.items[i]);
     // Look for item
     let found = false;
-    for(let location in locations) {
-      if(locations[location].items.indexOf(config.user.items[i]) >= 0) {
-        Util.log(2, 'Will be send to', '(' + locations[location].id + ')', location);
-        queue.push(quest, [config.user.dragons[i], locations[location].id, 12]);
+    for(let location in config.locations) {
+      if(config.locations[location].items.indexOf(config.user.items[i]) >= 0) {
+        Util.log(2, 'Will be send to', '(' + config.locations[location].id + ')', location);
+        queue.push(quest, [config.user.dragons[i], config.locations[location].id, 12]);
         found = true;
         break;
       }
@@ -134,7 +157,7 @@ function setupQuests() {
 // Great recursive fishing method
 // I basically can't test it because a user can fish 4 times a day
 function fishing(points) {
-  console.log('\n[ACTION] Trying to fish');
+  Util.logA('Trying to fish');
   const data = { fish: "at the age old pond - a frog leaps into water - a deep resonance" };
   Net.post({ path: '/map/fishing.html', data: data }, (res, html) => {
     let data = {};
@@ -143,8 +166,8 @@ function fishing(points) {
       // Nothing catched, process error
       const match = html.match(/{.*}/);
       if(match) {
-        console.log('GOOD MATCH', data);
-        data = JSON.parse(match[0]);
+        console.log('GOOD MATCH', match);
+        html = match[0];
       } else {
         console.log('NO MATCH, UH', html);
       }

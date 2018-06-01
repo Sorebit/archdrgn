@@ -1,0 +1,10 @@
+{
+  "user": { 
+    "login": "username",
+    "password": "password",
+    "dragons": [1001, 1002, 1003]
+  },
+  "goldInterval": 5,
+  "levelInterval": 10,
+  "refreshInterval": 5,
+}

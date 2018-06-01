@@ -25,6 +25,23 @@ Util.log = function(level) {
     text += ' ' + arguments[i];
   }
   console.log(text);
+  // Just because this is very serious
+  // console.log.apply(null, [Array(level * 4).join(' ').replace(' ', '-')].concat(Object.keys(arguments).map(i => (i == 0 ? '' : arguments[i]))));
+}
+
+Util.logA = function() {
+  // let text = '';
+  // for(let i = 0; i < arguments.length; i++) {
+  //   text += (i != 0 ? ' ' : '')  + arguments[i];
+  // }
+  // Just because I can
+  console.log.apply(null, ['\n[ACTION]'].concat(Object.keys(arguments).map(i => arguments[i])));
+}
+
+Util.loadConfig = function(file) {
+  const filepath = '../config/' + file + '.json';
+  console.log('Loading config from', filepath.substr(2));
+  return require(filepath);
 }
 
 module.exports = Util;
