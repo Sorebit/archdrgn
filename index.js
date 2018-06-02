@@ -2,26 +2,53 @@
 
 
 // Modules and classes
-const Net = require('./modules/net');
-const ActionQueue = require('./modules/actionqueue');
 const EventEmitter = require('events');
 const { JSDOM } = require('jsdom');
+const fs = require('fs');
+const Net = require('./modules/net');
+const ActionQueue = require('./modules/actionqueue');
 const Util = require('./modules/util');
-
 const eventHandler = new EventEmitter();
 const queue = new ActionQueue();
 
 // Load configs
 if(process.argv.length <= 2) {
-  console.error('[ERROR]', 'No username specified');
+  Util.error({header: 'No username specified', fatal: true });
   process.exit(1);
 }
-const config = Util.loadConfig('users/' + process.argv[2]);
+const username = process.argv[2];
+const config = Util.loadConfig('users/' + username);
 config.locations = Util.loadConfig('locations');
 
-// 
-let lastGold = null;
-let lastLevel = {};
+// Scheduler setup
+let scheduler = {
+  lastGold: null,
+  lastLevel: {}
+};
+
+function schedulerSetup() {    
+  const filepath = './config/schedule/' + username + '.json';
+  // Check if schedule file exists
+  if(fs.existsSync(filepath)) {
+    Util.logS('Scheduler file present');
+    scheduler = Util.loadConfig('schedule/' + username);
+    queue.complete();
+  } else {
+    Util.logS('Creating new scheduler file');
+    updateScheduleFile();
+  }
+}
+
+function updateScheduleFile() {
+  const filepath = './config/schedule/' + username + '.json';
+  fs.writeFile(filepath, JSON.stringify(scheduler), (error) => {
+    if(error) {
+      throw error;
+    }
+    Util.logS('File write successful');
+    queue.complete();
+  });
+}
 
 // Login and keep cookie for later requests
 function login() {
@@ -34,7 +61,7 @@ function login() {
       Net.cookie = response.headers['set-cookie'];
       eventHandler.emit('loginSuccess');
     } else {
-      eventHandler.emit('error', { header: 'Login failed', response: response });
+      Util.error({ header: 'Login failed', response: response, fatal: true});
     }
     // Tell handler that current action has been completed
     queue.complete();
@@ -52,7 +79,7 @@ function refresh() {
 // Gold requesting and scheduling
 function gold() {
   Util.logA('Trying to dig gold');
-  Util.log(1, 'Last gold received:', lastGold);
+  Util.log(1, 'Last gold received:', scheduler.lastGold);
   Net.get({ path: '/index.php?c=build&a=collect&place=1' }, (response) => {
     Net.get({ path: '/' + response.headers['location'] }, (response, html) => {
       // Find gold value element
@@ -63,8 +90,9 @@ function gold() {
         Util.log(1, 'Action message:', msg.children[0].textContent);
         // If success, keep time
         if(msg.children[0].textContent === '20 gold recieved!') {
-          lastGold = new Date();
-          Util.log(2, 'Saving latest gold time', Util.dateTime(lastGold));
+          scheduler.lastGold = new Date();
+          Util.log(2, 'Saving latest gold time', Util.dateTime(scheduler.lastGold));
+          queue.push(updateScheduleFile);
         }
       } else {
         Util.log(1, 'No action message');
@@ -77,17 +105,25 @@ function gold() {
       }
       
       // If there was a successful gold request schedule next for next hour (+ 1 minute)
-      // Otherwise use goldInterval
+      // Otherwise use intervals.gold
       const next = new Date();
-      const add = lastGold ? 61 * 60 : Math.ceil(config.goldInterval * 60);
+      const add = scheduler.lastGold ? 61 * 60 : Math.ceil(config.ints.gold * 60);
       next.setSeconds(next.getSeconds() + add);
-      console.log('[SCHEDULER] Next gold:', Util.dateTime(next));
+      Util.logS('Next gold:', Util.dateTime(next));
       setTimeout(() => queue.push(gold), add * 1000);
 
       // Tell handler that current action has been completed
       queue.complete();
     });
   });
+}
+
+// Returns seconds left to next gold
+function leftToGold(last) {
+  const now = new Date();
+  const sec = Math.round((now - last) / 1000);
+  let left = 60 * 60 - sec;
+  return left + 5;
 }
 
 // Level up dragon with specified id
@@ -104,18 +140,49 @@ function levelUpDragon(id)
     } else {
       text = data.text;
     }
-    const l = text.match(/[0-9]+/);
     Util.log(1, 'Leveling result:', text);
-    if(l) {
-      Util.log(2, 'New level:', l[0]);
-    }
-
+    // By default use interval from config
     const next = new Date();
-    next.setSeconds(next.getSeconds() + Math.ceil(config.levelInterval * 60));
-    console.log('[SCHEDULER] Next level:', Util.dateTime(next));
+    let add = config.ints.level * 60;
+    // Try to find level number in text
+    let l = text.match(/[0-9]+/);
+    if(l) {
+      // If success, get first match
+      l = l[0];
+      Util.log(2, 'New level:', l);
+      scheduler.lastLevel[id] = { date: new Date(), level: l };
+      //Util.log(1, 'Last level for dragon', id + ':', Util.dateTime(scheduler.lastLevel[id]));
+      queue.push(updateScheduleFile);
+      queue.push(fight, [id]);
+      // Normally we add 16 hours and 5 seconds
+      add = 16 * 60 * 60 + 5;
+      if(l < 10) {
+        // If level is below 10, we add 5 minutes and 5 seconds
+        add = 5 * 60 + 5;
+      }
+    } else {
+      Util.error({ header: 'Leveling not successful. Falling back to interval' });
+    }
+    next.setSeconds(next.getSeconds() + Math.ceil(add));
+    // Schedule next leveling for this dragon
+    setTimeout(() => queue.push(levelUpDragon, [id]), add * 1000);
+    Util.logS('Next leveling:', Util.dateTime(next));
     // Tell handler that current action has been completed
     queue.complete();
   });
+}
+
+function leftToLevel(record) {
+  const now = new Date();
+  const date = new Date(record.date);
+  const sec = Math.round((now - date) / 1000);
+  let left;
+  if(record.level < 10) {
+    left = 5*60 - sec;
+  } else {
+    left = 15*60*60 - sec;
+  }
+  return left + 5;
 }
 
 // Send specified dragon on specified quest for specified count of hours
@@ -134,7 +201,7 @@ function quest(dragon, place, hours) {
 // Setup quests (find mission for items and send dragons)
 function setupQuests() {
   // For each dragon look for different item
-  console.log('\nSetting up quests');
+  Util.logS('Setting up quests');
   for(let i = 0; i < config.user.items.length && i < config.user.dragons.length; i++) {
     Util.log(1, 'Dragon', config.user.dragons[i], 'Looking for', config.user.items[i]);
     // Look for item
@@ -149,7 +216,7 @@ function setupQuests() {
     }
     if(!found) {
       const error = { header: 'Item not found', item: config.user.items[i] };
-      eventHandler.emit('error', error);
+      Util.error(error);
     }
   } 
 }
@@ -161,18 +228,15 @@ function fishing(points) {
   const data = { fish: "at the age old pond - a frog leaps into water - a deep resonance" };
   Net.post({ path: '/map/fishing.html', data: data }, (res, html) => {
     let data = {};
-    // === TEST ME ===
     if(html.indexOf('Undefined offset: 0') >= 0) {
       // Nothing catched, process error
       const match = html.match(/{.*}/);
       if(match) {
-        console.log('GOOD MATCH', match);
         html = match[0];
       } else {
-        console.log('NO MATCH, UH', html);
+        Util.error({ header: 'No match', html: html });
       }
     }
-    // ===============
     // 
     let text = "";
     data = JSON.parse(html);
@@ -189,7 +253,6 @@ function fishing(points) {
     Util.log(1, 'Points left:', data.points);
     // If there are still points left fish again
     if(data.points != 0) {
-      console.log('There are still plenty of fish to catch...');
       queue.push(fishing);
     }
     // Tell handler that current action has been completed
@@ -197,7 +260,30 @@ function fishing(points) {
   });
 }
 
+// Send selected dragon to fight Red Rat untill exhausted
+// The code is kind of dirty, but works
+// Used for sending dragons after sucessful leveling
+function fight(id){
+  Util.logA('Dragon', id, 'tries to fight Red Rat');
+  Net.get({ path :'/fight/fight/battlemap/7-0-' + id + '.html' }, (res, html) => {
+    // console.log(html);
+    const document = new JSDOM(html).window.document;
+    let msg = document.getElementById('fight-div');
+    if(msg) {
+      msg = msg.getElementsByClassName('fight-row');
+      msg = msg[msg.length - 1].getElementsByClassName('fight-damage')[0];
+      queue.push(fight, [id]);
+    } else {
+      msg = document.getElementsByClassName('message-error')[0];
+    }
+    Util.log(1, 'Message:', msg.textContent);
+    
+    queue.complete();
+  });
+}
+
 // Main logic
+queue.push(schedulerSetup);
 queue.push(login);
 
 eventHandler.on('loginSuccess', () => {
@@ -205,38 +291,57 @@ eventHandler.on('loginSuccess', () => {
   Util.log(1, 'Login successful');
   Util.log(1, 'Cookie:', Net.cookie, '\n');
 
-  console.log('[SCHEDULER] Gold interval:', config.goldInterval, 'min (' + Math.ceil(config.goldInterval * 60), 's)');
-  console.log('[SCHEDULER] Level interval:', config.levelInterval, 'min (' + Math.ceil(config.levelInterval * 60), 's)');
-  console.log('[SCHEDULER] Refresh interval:', config.refreshInterval, 'min (' + Math.ceil(config.refreshInterval * 60), 's)');
+  Util.logS('Intervals:');
+  Util.log(1, 'Gold:', config.ints.gold, 'min (' + Math.ceil(config.ints.gold * 60), 's)');
+  Util.log(1, 'Level:', config.ints.refresh, 'min (' + Math.ceil(config.ints.refresh * 60), 's)');
+  Util.log(1, 'Refresh:', config.ints.refresh, 'min (' + Math.ceil(config.ints.refresh * 60), 's)');
 
   // Setup refresh schedule
   let refreshInt = setInterval(() => {
     queue.push(refresh);
-  }, config.refreshInterval * 60 * 1000);
+  }, config.ints.refresh * 60 * 1000);
 
   // Setup gold schedule
-  queue.push(gold);
+  if(scheduler.lastGold) {
+    const last = new Date(scheduler.lastGold);
+    Util.logS('Last gold', Util.dateTime(last));
+
+    const left = leftToGold(last);
+    const next = new Date();
+    next.setSeconds(next.getSeconds() + left);
+    Util.log(1, 'Next gold:', Util.dateTime(next));
+    setTimeout(() => {
+      queue.push(gold);
+    }, left * 1000);
+  } else {
+    Util.logS('No record of last successful gold');
+    Util.log(1, 'Next gold: now');
+    queue.push(gold);
+  }
 
   // Setup leveling schedule
-  let levelInt = setInterval(() => {
-    for(let id in config.user.dragons) {
-      queue.push(levelUpDragon, [config.user.dragons[id]]);
+  for(let i in config.user.dragons) {
+    const id = config.user.dragons[i];
+    if(scheduler.lastLevel[id]) {
+      const left = leftToLevel(scheduler.lastLevel[id]);
+      const next = new Date();
+      const date = new Date(scheduler.lastLevel[id].date);
+      const level = scheduler.lastLevel[id].level;
+      next.setSeconds(next.getSeconds() + left);
+      Util.logS('Dragon', id, 'had last leveling at', Util.dateTime(date), 'to level', level);
+      Util.log(1, 'Next leveling:', Util.dateTime(next));
+      setTimeout(() => {
+        queue.push(levelUpDragon, [id]);
+      }, left * 1000);
+    } else {
+      Util.logS('Dragon', id, 'has no record of leveling');
+      Util.log(1, 'Next leveling: now');
+      queue.push(levelUpDragon, [id]);
     }
-  }, config.levelInterval * 60 * 1000);
+  }
 
   // Setup quests once
-  setupQuests();
+  // setupQuests();
   // Setup fishing once
-  queue.push(fishing);
-});
-
-eventHandler.on('error', (error) => {
-  console.error('[ERROR]', error.header);
-  if(error.header === 'Login failed') {
-    console.log('Response:', error.response.headers);
-  } else if(error.header === 'Item not found') {
-    console.log('Item:', error.item);
-  }
-  // Close app
-  process.exit(1);
+  // queue.push(fishing);
 });

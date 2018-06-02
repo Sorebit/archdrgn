@@ -1,4 +1,6 @@
 # ArchDragon bot
+You can play the game [here](http://archdragon.com/dragons/index.html)
+
 
 ### Currently supports
 - Login with data from config and session storage
@@ -10,19 +12,21 @@
   + `config.user.dragons[0]` will look for `config.user.items[0]`, `[1]` will look for `[1]` and so on
   + Currently it is only done **once on launch**
 - Queuing actions to not overlap in time
-- Fishing? (still needs to be tested)
+- Fishing
+- Fighting with Red Rat (drops raw meat and leather) on successful leveling
+- Output coloring for readability
+- Scheduling gold and leveling based on generated files (seems to work; not much tested)
 
 ### Usage
 - `npm install`
 - `node index [username]`
 
 ### Todo
-- Save last successful gold and leveling to a file and use it to schedule on launch
 - Figure out how to check if dragon was sent on mission
 - Quest timing
 - Map exploration
 - Feeding
-- Output coloring for readability
+- Note down items dropped by each monster
 
 ### Notes
 This bot and game serves me only as a learning framework.
@@ -32,8 +36,14 @@ This bot and game serves me only as a learning framework.
   + `Undefined offset: 0<br />File: map.controller.php<br />Line: 238{"points":0,"status":"OK","item":0,"item_name":null,"userAccountActive":false}`
 - Otherwise it's just JSON
 - For some reason this is what is used to post to fish
-  + "fish" = "at the age old pond - a frog leaps into water - a deep resonance"
+  + `{"fish": "at the age old pond - a frog leaps into water - a deep resonance"}`
 
 **Config files and launching**
 - Config files are organized in `/config` directory
 - For a user config to be recognized it has to be named `username.json` and placed in `/config/users` directory
+- For scheduler to work properly there needs to be a `/config/schedule` directory
+- Fun fact: Turns out there exists a user named `username`, whose password is `password`
+
+**Fighting**
+- As of now there is only hardcoded Red Rat battle supported because it drops leather which I want to get hold on
+- To enable fighting set `user.fight` to `true` in config

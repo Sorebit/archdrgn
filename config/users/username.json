@@ -2,9 +2,13 @@
   "user": { 
     "login": "username",
     "password": "password",
-    "dragons": [1001, 1002, 1003]
+    "dragons": [90],
+    "items": ["Airplant Seed", "Waterplant Seed", "Earthplant Seed"],
+    "fight": false
   },
-  "goldInterval": 5,
-  "levelInterval": 10,
-  "refreshInterval": 5,
+  "ints": {
+    "refresh": 5,
+    "gold": 5,
+    "level": 30
+  }
 }

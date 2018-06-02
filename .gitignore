@@ -1,7 +1,8 @@
 # Omit actual configs
 /config/users/*.json
 !/config/users/username.json
-/config/schedule/
+/config/schedule/*
+!/config/schedule/username.json
 
 # Editor files
 *.sublime-project

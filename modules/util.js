@@ -1,5 +1,6 @@
 'use strict';
 
+const chalk = require('chalk');
 const Util = function() {}
 
 // Prepend '0' if @a is less than @lt
@@ -25,17 +26,36 @@ Util.log = function(level) {
     text += ' ' + arguments[i];
   }
   console.log(text);
-  // Just because this is very serious
-  // console.log.apply(null, [Array(level * 4).join(' ').replace(' ', '-')].concat(Object.keys(arguments).map(i => (i == 0 ? '' : arguments[i]))));
 }
 
+// Log with tag
+Util.logWith = function(tag, args) {
+  console.log.apply(null, ['\n[' + tag + ']'].concat(Object.keys(args).map(i => args[i])));
+}
+
+// Action log
 Util.logA = function() {
-  // let text = '';
-  // for(let i = 0; i < arguments.length; i++) {
-  //   text += (i != 0 ? ' ' : '')  + arguments[i];
-  // }
-  // Just because I can
-  console.log.apply(null, ['\n[ACTION]'].concat(Object.keys(arguments).map(i => arguments[i])));
+  Util.logWith(chalk.blue('ACTION'), arguments);
+}
+
+// Scheduler log
+Util.logS = function() {
+  Util.logWith(chalk.magenta('SCHEDULER'), arguments);
+}
+
+Util.error = function(error) {
+  console.error('[' + chalk.red('ERROR') + ']', chalk.red(error.header));
+  if(error.header === 'Login failed') {
+    console.error(chalk.red('Response:', error.response.headers));
+  } else if(error.header === 'Item not found') {
+    console.error(chalk.red('Item:', error.item));
+  } else if(error.header === 'No match') {
+    console.error(chalk.red('HTML:', error.html));
+  }
+  // Close app if fatal error
+  if(error.fatal) {
+    process.exit(1);
+  }
 }
 
 Util.loadConfig = function(file) {
