@@ -1,6 +1,6 @@
 # ArchDragon bot
-You can play the game [here](http://archdragon.com/dragons/index.html)
-
+| [**Play the game**](http://archdragon.com/) | [**Wiki**](https://github.com/Sorebit/archdrgn/wiki) |
+| :-----------------------------------------: | :--------------------------------------------------: |
 
 ### Currently supports
 - Login with data from config and session storage
@@ -22,15 +22,15 @@ You can play the game [here](http://archdragon.com/dragons/index.html)
 - `node index [username]`
 
 ### Todo
+- Map exploration
 - Figure out how to check if dragon was sent on mission
 - Quest timing
-- Map exploration
 - Feeding
 - Note down items dropped by each monster
 - Stop caring about this game; start caring about exams
 
 ## Notes
-This bot and game serves me only as a learning framework.
+This bot and game serves me only as a learning framework.1
 
 **Fishing**
 - If nothing catched, server has some internal php error. Response then looks like this:
