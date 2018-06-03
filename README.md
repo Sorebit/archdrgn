@@ -30,7 +30,7 @@
 - Stop caring about this game; start caring about exams
 
 ## Notes
-This bot and game serves me only as a learning framework.1
+This bot and game serves me only as a learning framework.
 
 **Fishing**
 - If nothing catched, server has some internal php error. Response then looks like this:
@@ -46,5 +46,5 @@ This bot and game serves me only as a learning framework.1
 - Fun fact: Turns out there exists a user named `username`, whose password is `password`
 
 **Fighting**
-- As of now there is only hardcoded Red Rat battle supported because it drops leather which I want to get hold on
-- To enable fighting set `user.fight` to `true` in config
+- As of now I use fighting mostly to speed up gathering data
+- To enable fighting on successful level set `user.fight` to `true` in config

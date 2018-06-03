@@ -140,7 +140,7 @@ function levelUpDragon(id)
     } else {
       text = data.text;
     }
-    Util.log(1, 'Leveling result:', text);
+    // Util.log(1, 'Leveling result:', text);
     // By default use interval from config
     const next = new Date();
     let add = config.ints.level * 60;
@@ -149,16 +149,18 @@ function levelUpDragon(id)
     if(l) {
       // If success, get first match
       l = l[0];
-      Util.log(2, 'New level:', l);
+      Util.log(1, 'New level:', l);
       scheduler.lastLevel[id] = { date: new Date(), level: l };
       //Util.log(1, 'Last level for dragon', id + ':', Util.dateTime(scheduler.lastLevel[id]));
       queue.push(updateScheduleFile);
-      queue.push(fight, [id]);
+      if(config.user.fight) {
+        queue.push(fight, [id]);
+      }
       // Normally we add 16 hours and 5 seconds
-      add = 16 * 60 * 60 + 5;
+      add = 16*60*60 + 5;
       if(l < 10) {
         // If level is below 10, we add 5 minutes and 5 seconds
-        add = 5 * 60 + 5;
+        add = 5*60 + 5;
       }
     } else {
       Util.error({ header: 'Leveling not successful. Falling back to interval' });
@@ -180,7 +182,7 @@ function leftToLevel(record) {
   if(record.level < 10) {
     left = 5*60 - sec;
   } else {
-    left = 15*60*60 - sec;
+    left = 16*60*60 - sec;
   }
   return left + 5;
 }
@@ -260,25 +262,62 @@ function fishing(points) {
   });
 }
 
-// Send selected dragon to fight Red Rat untill exhausted
+// Send selected dragon to fight selected monster untill exhausted
 // The code is kind of dirty, but works
 // Used for sending dragons after sucessful leveling
-function fight(id){
-  Util.logA('Dragon', id, 'tries to fight Red Rat');
-  Net.get({ path :'/fight/fight/battlemap/7-0-' + id + '.html' }, (res, html) => {
+function fight(id, mid){
+  Util.logA('Dragon', id, 'tries to fight monster', mid);
+  Net.get({ path :'/fight/fight/battlemap/' + mid + '-0-' + id + '.html' }, (res, html) => {
     // console.log(html);
     const document = new JSDOM(html).window.document;
     let msg = document.getElementById('fight-div');
     if(msg) {
       msg = msg.getElementsByClassName('fight-row');
       msg = msg[msg.length - 1].getElementsByClassName('fight-damage')[0];
-      queue.push(fight, [id]);
+      // queue.push(fight, [id, mid]);
     } else {
       msg = document.getElementsByClassName('message-error')[0];
     }
     Util.log(1, 'Message:', msg.textContent);
     
     queue.complete();
+  });
+}
+
+function map(id, x, y) {
+  Net.get({ path: '/dragons/actionEnd/' + id + '.html' }, (res, html) => {
+    Util.logA('Trying to send dragon', id, 'to x:', x, 'y:', y);
+    const data = { "dragon": id, "x": x, "y": y };
+    Net.post({ path: '/index.php?c=map&a=send', data: data }, (res, html) => {
+      Net.get({ path: res.headers['location'] }, (response, html) => {
+        // console.log(html);
+        const document = new JSDOM(html).window.document;
+        const msg = document.getElementsByClassName('barText')[0];
+        if(msg) {
+          Util.log(1, 'Message:', msg.textContent);
+        } else {
+          Util.error({ header: 'No message' });
+        }
+
+        // document.querySelectorAll('[dragon_id="67117"]');
+        const stops = document.getElementById('index-dragonList').getElementsByTagName('tr');
+        //const stops = document.getElementById('index-dragonList').getElementsByClassName('countdown-stop');
+        for(let i = 0; i < stops.length; i++) {
+          // if(stops[i]) {
+            // const timestamp = stops[i].textContent;
+            // console.log(timestamp);
+          // }
+          const stop = stops[i].getElementsByClassName('countdown-stop');
+          if(stop.length) {
+            const timestamp = stop[0].textContent;
+            Util.log(1, i, timestamp);
+          }
+          //Util.log(1, i, 'ends', Util.dateTime(new Date(timestamp * 1000)));
+        }
+        // Tell handler that current action has been completed
+        queue.complete();
+      });
+    });
   });
 }
 
@@ -289,11 +328,11 @@ queue.push(login);
 eventHandler.on('loginSuccess', () => {
   // Login successful, proceed to main loop
   Util.log(1, 'Login successful');
-  Util.log(1, 'Cookie:', Net.cookie, '\n');
+  Util.log(1, 'Cookie:', Net.cookie);
 
   Util.logS('Intervals:');
   Util.log(1, 'Gold:', config.ints.gold, 'min (' + Math.ceil(config.ints.gold * 60), 's)');
-  Util.log(1, 'Level:', config.ints.refresh, 'min (' + Math.ceil(config.ints.refresh * 60), 's)');
+  Util.log(1, 'Level:', config.ints.level, 'min (' + Math.ceil(config.ints.level * 60), 's)');
   Util.log(1, 'Refresh:', config.ints.refresh, 'min (' + Math.ceil(config.ints.refresh * 60), 's)');
 
   // Setup refresh schedule
@@ -343,5 +382,11 @@ eventHandler.on('loginSuccess', () => {
   // Setup quests once
   // setupQuests();
   // Setup fishing once
-  // queue.push(fishing);
+  queue.push(fishing);
+  // for(let i = 0; i < 10; i++) {
+  //   queue.push(fight, [config.user.dragons[3], 5]);
+  // }
+  // for(let i = 0; i < 4; i++) {
+  //   queue.push(map, [config.user.dragons[i], 0, 9 + i]);
+  // }
 });
