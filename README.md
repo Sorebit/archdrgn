@@ -27,8 +27,9 @@ You can play the game [here](http://archdragon.com/dragons/index.html)
 - Map exploration
 - Feeding
 - Note down items dropped by each monster
+- Stop caring about this game; start caring about exams
 
-### Notes
+## Notes
 This bot and game serves me only as a learning framework.
 
 **Fishing**
