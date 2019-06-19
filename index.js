@@ -1,6 +1,5 @@
 'use strict';
 
-
 // Modules and classes
 const EventEmitter = require('events');
 const { JSDOM } = require('jsdom');
@@ -25,6 +24,9 @@ let scheduler = {
   lastGold: null,
   lastLevel: {}
 };
+
+const currentY = 10;
+let questTimes = [];
 
 function schedulerSetup() {    
   const filepath = './config/schedule/' + username + '.json';
@@ -164,6 +166,7 @@ function levelUpDragon(id)
       }
     } else {
       Util.error({ header: 'Leveling not successful. Falling back to interval' });
+      Util.log(1, text);
     }
     next.setSeconds(next.getSeconds() + Math.ceil(add));
     // Schedule next leveling for this dragon
@@ -298,27 +301,86 @@ function map(id, x, y) {
         } else {
           Util.error({ header: 'No message' });
         }
-
-        // document.querySelectorAll('[dragon_id="67117"]');
-        const stops = document.getElementById('index-dragonList').getElementsByTagName('tr');
-        //const stops = document.getElementById('index-dragonList').getElementsByClassName('countdown-stop');
-        for(let i = 0; i < stops.length; i++) {
-          // if(stops[i]) {
-            // const timestamp = stops[i].textContent;
-            // console.log(timestamp);
-          // }
-          const stop = stops[i].getElementsByClassName('countdown-stop');
-          if(stop.length) {
-            const timestamp = stop[0].textContent;
-            Util.log(1, i, timestamp);
-          }
-          //Util.log(1, i, 'ends', Util.dateTime(new Date(timestamp * 1000)));
-        }
-        // Tell handler that current action has been completed
+        // queue.setNext(getQuestTimes);
         queue.complete();
       });
     });
   });
+}
+
+// Returns seconds left to timestamp
+function timeLeft(timestamp) {
+  const now = new Date();
+  const date = new Date(timestamp);
+  const sec = Math.round((date - now) / 1000);
+  return sec;
+}
+
+function getQuestTimes() {
+  Util.logA('Updating quest times');
+  Net.get({ path: '/map/index.html' }, (response, html) => {
+    const document = new JSDOM(html).window.document;
+
+    const stops = document.getElementById('index-dragonList').getElementsByTagName('tr');
+    
+    for(let i = 0; i < stops.length; i++) {
+      const stop = stops[i].getElementsByClassName('countdown-stop');
+      if(stop.length) {
+        const timestamp = stop[0].textContent * 1000;
+        questTimes[i] = timestamp;
+        Util.log(1, i, '=>', Util.dateTime(new Date(timestamp)));
+      }
+    }
+    queue.complete();
+  }); 
+}
+
+// Single dragon map explorer
+// Explores row y starting at column x 
+function mapExplorer(index, x, y) {
+  // Update quest times
+  queue.push(getQuestTimes);
+  // Try to explore
+  queue.push(() => {
+    Util.logA('Trying explore with dragon', config.user.dragons[index]);
+    Util.log(1, 'x:', x);
+    Util.log(1, 'line (y):', y);
+    // If line finished, don't continue
+    if(x < 0) {
+      Util.error({ header: 'Dragon already explored this line' });
+    } else if(!questTimes[index] || timeLeft(questTimes[index]) <= 0) {
+      queue.push(map, [config.user.dragons[index], x, y, true]);
+      queue.push(getQuestTimes);
+      queue.push(() => {      
+      // Shedule next coordinates
+        Util.logS('Scheduling next exploration to', Util.dateTime(new Date(questTimes[index] + 5)));
+        if(x < 27) {
+          setTimeout(() => {
+            queue.push(mapExplorer, [index, x + 1, y]);
+          }, (timeLeft(questTimes[index]) + 5) * 1000);
+        } else {
+          Util.log(1, 'END OF LINE');
+        }
+        queue.complete();
+      });
+    } else {
+      Util.error({ header: 'Dragon still on quest.' });
+      // Shedule the same coordinates
+      queue.push(() => {
+        Util.logS('Scheduling next exploration to', Util.dateTime(new Date(questTimes[index] + 5)));
+        if(x < 27) {
+          setTimeout(() => {
+            queue.push(mapExplorer, [index, x, y]);
+          }, (timeLeft(questTimes[index]) + 5) * 1000);
+        } else {
+          Util.log(1, 'END OF LINE');
+        }
+        queue.complete();
+      });
+    }
+    queue.complete();
+  });
+  queue.complete();
 }
 
 // Main logic
@@ -386,7 +448,8 @@ eventHandler.on('loginSuccess', () => {
   // for(let i = 0; i < 10; i++) {
   //   queue.push(fight, [config.user.dragons[3], 5]);
   // }
-  // for(let i = 0; i < 4; i++) {
-  //   queue.push(map, [config.user.dragons[i], 0, 9 + i]);
-  // }
+  // mapExplorer(0, 14, 12);
+  // mapExplorer(1, 12, 13);
+  // mapExplorer(2, 12, 14);
+  // mapExplorer(3, 12, 15);
 });

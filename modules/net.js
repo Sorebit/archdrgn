@@ -45,7 +45,7 @@ Net.request = function(method, config, callback) {
   });
 
   // Handle response error
-  req.on('error', (e) => console.error('[ERROR] Request error:', e.message));
+  req.on('error', (e) => { console.error('[ERROR] Request error:', e.message); });
   // Write form data
   if(data && method === 'POST') {
     req.write(data);

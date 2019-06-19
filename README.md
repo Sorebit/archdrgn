@@ -30,14 +30,7 @@
 - Stop caring about this game; start caring about exams
 
 ## Notes
-This bot and game serves me only as a learning framework.
-
-**Fishing**
-- If nothing catched, server has some internal php error. Response then looks like this:
-  + `Undefined offset: 0<br />File: map.controller.php<br />Line: 238{"points":0,"status":"OK","item":0,"item_name":null,"userAccountActive":false}`
-- Otherwise it's just JSON
-- For some reason this is what is used to post to fish
-  + `{"fish": "at the age old pond - a frog leaps into water - a deep resonance"}`
+This bot and game serves me only as a learning framework and this code is getting out of control and dirty.
 
 **Config files and launching**
 - Config files are organized in `/config` directory
@@ -48,3 +41,6 @@ This bot and game serves me only as a learning framework.
 **Fighting**
 - As of now I use fighting mostly to speed up gathering data
 - To enable fighting on successful level set `user.fight` to `true` in config
+
+**Net errors**
+- Currently when a request error occurs, queue breaks. I should fix that

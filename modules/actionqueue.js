@@ -9,7 +9,7 @@ const ActionQueue = function() {
   
   // Every function that is pushed to queue has to call complete to enable it to move on to next actions
   this.complete = function() {
-    // console.log('[QUEUE]', 'Action complete');
+    // console.log('[QUEUE]', 'Action complete, size:', queue.length);
     if(queue.length) {
       queue.shift();
     }
